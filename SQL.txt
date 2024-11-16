@@ -1,0 +1,3 @@
+SQL 
+convertion into lat/long
+ST_X(location::geometry), ST_Y(location::geometry)
