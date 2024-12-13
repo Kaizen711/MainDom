@@ -1,23 +1,32 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interactive Map</title>
+    <!-- Leaflet CSS -->
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
       crossorigin=""
     />
+    <!-- Leaflet JS -->
     <script
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-    <!-- Include external JS files -->
+    <!-- External Scripts for GeoJSON Layers -->
     <script src="Shape_layers/Line_3_aligment.js"></script>
-    <!-- Corrected path with forward slash -->
+    <script src="Shape_layers/line3_stationbox.js"></script>
     <script src="Shape_layers/Line_3_Station.js"></script>
 
     <style>
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+      }
       #map {
         position: absolute;
         top: 0;
@@ -25,16 +34,86 @@
         left: 0;
         right: 0;
       }
+      .search-container {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        background: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      }
+      .search-container input {
+        width: 300px;
+        padding: 5px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+      }
+      .search-container button {
+        margin-left: 5px;
+        padding: 5px 10px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+      .search-container button:hover {
+        background-color: #0056b3;
+      }
+      .legend {
+        line-height: 18px;
+        color: #555;
+        padding: 6px 8px;
+        font-size: 12px;
+        background-color: white;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+        width: 150px;
+        box-shadow: 0px 2px 10px rgba(0, 0, 0, 0.2);
+      }
+      .legend i {
+        width: 18px;
+        height: 18px;
+        float: left;
+        margin-right: 8px;
+        border-radius: 2px;
+      }
+      .legend .station-icon {
+        width: 18px;
+        height: 18px;
+        background-size: contain;
+        display: inline-block;
+        margin-right: 8px;
+      }
+      .legend .alignment-icon {
+        width: 18px;
+        height: 18px;
+        background-color: aqua;
+        display: inline-block;
+        margin-right: 8px;
+      }
     </style>
   </head>
+
   <body>
     <div id="map"></div>
-    <script>
-      // Initialize the map centered on Mumbai with a zoom level of 13
-      var map = L.map("map").setView([19.076, 72.8777], 13);
 
-      // Set the tile layer for the map (OpenStreetMap)
-      var osm = L.tileLayer(
+    <div class="search-container">
+      <input type="text" id="search" placeholder="Search location..." />
+      <button id="search-btn">Search</button>
+    </div>
+
+    <script>
+      // Initialize map
+      const map = L.map("map").setView([19.076, 72.8777], 13);
+
+      // Add tile layer
+      const osm = L.tileLayer(
         "https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=lQ3w6qnxrDCS4gCKbmkB",
         {
           attribution:
@@ -42,20 +121,53 @@
         }
       ).addTo(map);
 
-      // Add map layer for Jawg_Matrix
-      var Jawg_Matrix = L.tileLayer(
-        "https://tile.jawg.io/jawg-matrix/{z}/{x}/{y}{r}.png?access-token={accessToken}",
+      // Search functionality
+      const searchInput = document.getElementById("search");
+      const searchBtn = document.getElementById("search-btn");
+
+      searchBtn.addEventListener("click", () => {
+        const location = searchInput.value;
+        if (location) {
+          fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+              location
+            )}`
+          )
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.length > 0) {
+                const { lat, lon } = data[0];
+                map.setView([lat, lon], 15);
+                L.marker([lat, lon])
+                  .addTo(map)
+                  .bindPopup(`You searched for: ${location}`)
+                  .openPopup();
+              } else {
+                alert("Location not found. Please try another search.");
+              }
+            });
+        }
+      });
+
+      // Tile layers
+      const googlemap = L.tileLayer(
+        "http://{s}.google.com/vt?lyrs=m&x={x}&y={y}&z={z}",
         {
-          attribution:
-            '<a href="https://jawg.io" title="Tiles Courtesy of Jawg Maps" target="_blank">&copy; <b>Jawg</b> Maps</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-          minZoom: 0,
-          maxZoom: 22,
-          accessToken: "<your accessToken>", // Replace <your accessToken> with your actual access token
+          maxZoom: 20,
+          subdomains: ["mt0", "mt1", "mt2", "mt3"],
         }
       );
 
-      // Add map layer for Dark Matter
-      var Dark = L.tileLayer(
+      const CartoDB_DarkMatterNoLabels = L.tileLayer(
+        "https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png",
+        {
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          subdomains: "abcd",
+          maxZoom: 20,
+        }
+      );
+      const Dark = L.tileLayer(
         "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
         {
           attribution:
@@ -65,69 +177,78 @@
         }
       );
 
-      // Define the custom icon for the marker
-      var myIcon = L.icon({
-        iconUrl: "treeicon%201.svg", // Ensure the icon URL is correct (check path)
-        iconSize: [40, 40], // Icon size
+      // Define icon for metro stations
+      const MetroStationIcon = L.icon({
+        iconUrl: "https://cdn-icons-png.flaticon.com/512/8059/8059120.png",
+        iconSize: [50, 50], // Icon size
       });
 
-      var myIcon1 = L.icon({
-        iconUrl: "Icon/ICON_5_11/Museum.svg",
-        iconSize: [350, 350], // Icon size
-      });
-
-      // Create markers for the Airport and Gateway of India
-      var Airport = L.marker([19.091518110457972, 72.86343037232463], {
-        icon: myIcon,
-      }).addTo(map);
-      var GateWayofIndia = L.marker([18.92199691119748, 72.83466407344463], {
-        icon: myIcon1,
-      }).addTo(map);
-
-      // Bind popups to the markers with correct latitude and longitude
-      Airport.bindPopup(
-        "Airport. Latitude: " +
-          Airport.getLatLng().lat +
-          ", Longitude: " +
-          Airport.getLatLng().lng
-      ).openPopup();
-      GateWayofIndia.bindPopup(
-        "Gateway of India. Latitude: " +
-          GateWayofIndia.getLatLng().lat +
-          ", Longitude: " +
-          GateWayofIndia.getLatLng().lng
-      ).openPopup();
-
-      // Log the GeoJSON representation of the markers
-      console.log(Airport.toGeoJSON());
-      console.log(GateWayofIndia.toGeoJSON());
-
-      // Set up the base layers and overlays for the map
-      var baseLayers = {
+      // Define base layers
+      const baseLayers = {
         OpenStreetMap: osm,
         Dark: Dark,
-        "Jawg Matrix": Jawg_Matrix,
+        "Dark No label": CartoDB_DarkMatterNoLabels,
+        "Google Map": googlemap,
       };
 
-      var overlays = {
-        "Gateway of India": GateWayofIndia,
-        Airport: Airport,
+      // Add GeoJSON layers
+      const Metro_Stations = L.geoJSON(Line_3_Station, {
+        pointToLayer: (feature, latlng) =>
+          L.marker(latlng, { icon: MetroStationIcon }),
+        onEachFeature: (feature, layer) => {
+          if (feature.properties && feature.properties.Name) {
+            layer.bindPopup(feature.properties.Name);
+          }
+        },
+      });
+
+      const Line_3_alignment = L.geoJSON(Line_3_aligment, {
+        style: () => ({ color: "aqua", weight: 4, opacity: 0.8 }),
+      });
+
+      const Line3StationboxLayer = L.geoJSON(Line_3_Stationbox, {
+        style: () => ({
+          color: "red",
+          weight: 2,
+          opacity: 1,
+          fillColor: "red",
+          fillOpacity: 0.8,
+        }),
+        onEachFeature: (feature, layer) => {
+          if (feature.properties && feature.properties.Name) {
+            layer.bindPopup(feature.properties.Name);
+          }
+        },
+      });
+
+      // Overlay layers
+      const overlays = {
+        "Metro Stations": Metro_Stations,
+        "Line 3 Alignment": Line_3_alignment,
+        "Line 3 Stationbox": Line3StationboxLayer,
       };
 
-      // Add the layers control to the map
+      // Add layer control
       L.control.layers(baseLayers, overlays).addTo(map);
 
-      //   L.geoJSON(Line_3_aligment).addTo(map);
-      L.geoJSON(Line_3_aligment, {
-        style: function (feature) {
-          return {
-            color: "green", // Set the line color to aqua
-            weight: 5, // Set the weight of the line (optional)
-            opacity: 0.7, // Set opacity (optional)
-          };
-        },
-      }).addTo(map);
-      L.geoJSON;
+      // Add layers to map
+      Metro_Stations.addTo(map);
+      Line_3_alignment.addTo(map);
+      Line3StationboxLayer.addTo(map);
+
+      // Add legend
+      const legend = L.control({ position: "bottomright" });
+      legend.onAdd = (map) => {
+        const div = L.DomUtil.create("div", "legend");
+        div.innerHTML =
+          "<b>Legend</b><br>" +
+          '<div class="legend-item"><div class="station-icon" style="background-image: url(https://cdn-icons-png.flaticon.com/512/8059/8059120.png);"></div> Metro Stations</div>' +
+          '<div class="legend-item"><div class="alignment-icon"></div> Line 3 Alignment</div>' +
+          '<div class="legend-item"><div class="legend-icon" style="background-color: red;"></div> Line 3 Stationbox</div>';
+        return div;
+      };
+
+      legend.addTo(map);
     </script>
   </body>
 </html>
